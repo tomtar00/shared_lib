@@ -1,0 +1,16 @@
+[package]
+name = "shared_lib"
+version = "0.1.0"
+edition = "2021"
+
+license = "MIT"
+authors = ["tomtar00"]
+documentation = "https://docs.rs/shared_lib"
+description = "Wrapper around the libloading crate that aims to improve the system path and error handling."
+repository = "https://github.com/tomtar00/shared_lib"
+readme = "README.md"
+keywords = ["library", "dynamic", "loading", "libloading", "shared"]
+categories = ["api-bindings"]
+
+[dependencies]
+libloading = "0.8.3"
