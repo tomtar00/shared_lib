@@ -8,7 +8,7 @@ authors = ["tomtar00"]
 documentation = "https://docs.rs/shared_lib"
 description = "Wrapper around the libloading crate that aims to improve the system path and error handling."
 repository = "https://github.com/tomtar00/shared_lib"
-readme = "README.md"
+readme = "../README.md"
 keywords = ["library", "dynamic", "loading", "libloading", "shared"]
 categories = ["api-bindings"]
 
