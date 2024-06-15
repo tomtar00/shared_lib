@@ -16,15 +16,21 @@
 //! }
 //! ```
 
+use thiserror::Error;
 use libloading::{library_filename, Library, Symbol};
 use std::{ffi::OsString, path::PathBuf};
 
 /// Enum representing the possible errors that can occur when working with shared libraries.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SharedLibError {
-    PathError(String),
-    LoadError(String),
-    SymbolError(String),
+    #[error("Path is empty.")]
+    PathEmpty,
+    #[error("Failed to convert path '{0}' to {1}.")]
+    PathConversion(PathBuf, String),
+    #[error("Failed to load library from path '{path}'. {msg}")]
+    LoadFailure { path: String, msg: String },
+    #[error("Failed to find symbol '{symbol_name}' in library '{lib_name}'. {msg}")]
+    SymbolNotFound { symbol_name: String, lib_name: String, msg: String }
 }
 
 /// Structure representing a shared library path.
@@ -46,8 +52,9 @@ impl ToString for LibPath {
 impl TryInto<OsString> for LibPath {
     type Error = SharedLibError;
     fn try_into(self) -> Result<OsString, Self::Error> {
-        self.path()?.try_into().map_err(|_| {
-            SharedLibError::PathError("Failed to convert path to OsString.".to_string())
+        let path = self.path()?;
+        path.clone().try_into().map_err(|_| {
+            SharedLibError::PathConversion(path, "OsString".into())
         })
     }
 }
@@ -87,9 +94,7 @@ impl LibPath {
     /// ```
     pub fn filename(&self) -> Result<OsString, SharedLibError> {
         if self.lib_name.is_empty() {
-            return Err(SharedLibError::PathError(
-                "Library name is empty.".to_string(),
-            ));
+            return Err(SharedLibError::PathEmpty);
         }
         Ok(library_filename(self.lib_name.clone()))
     }
@@ -157,6 +162,7 @@ impl<'a, Ret, A1, A2, A3, A4, A5> SharedLibFn<'a, fn(A1, A2, A3, A4, A5) -> Ret>
 /// Structure representing a shared library.
 pub struct SharedLib {
     lib: Library,
+    lib_path: LibPath
 }
 impl SharedLib {
     /// Create a new shared library from the given path.
@@ -168,14 +174,14 @@ impl SharedLib {
             Ok(lib) => lib,
             Err(e) => {
                 let path_str: OsString = lib_path.try_into()?;
-                let path_str = path_str.to_string_lossy();
-                return Err(SharedLibError::LoadError(format!(
-                    "Failed to load shared library from path '{}'. {}",
-                    path_str, e
-                )));
+                let path_str: String = path_str.to_string_lossy().to_string();
+                return Err(SharedLibError::LoadFailure {
+                    path: path_str, 
+                    msg: e.to_string()
+                });
             }
         };
-        Ok(SharedLib { lib })
+        Ok(SharedLib { lib, lib_path })
     }
     /// Get a function by name from the shared library.
     /// # Safety
@@ -195,10 +201,11 @@ impl SharedLib {
         let symbol = match self.lib.get(fn_name.as_bytes()) {
             Ok(symbol) => symbol,
             Err(e) => {
-                return Err(SharedLibError::SymbolError(format!(
-                    "Failed to get symbol '{}' from shared library. {}",
-                    fn_name, e
-                )));
+                return Err(SharedLibError::SymbolNotFound { 
+                    symbol_name: fn_name.to_owned(), 
+                    lib_name: self.lib_path.path()?.to_string_lossy().to_string(),
+                    msg: e.to_string(), 
+                });
             }
         };
         Ok(SharedLibFn::new(symbol))
