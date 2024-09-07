@@ -13,7 +13,7 @@ or add `shared_lib` to your `Cargo.toml` file.
 
 ## Usage
 
-```
+```rust
 use shared_lib::*;
 use std::path::PathBuf;
 
